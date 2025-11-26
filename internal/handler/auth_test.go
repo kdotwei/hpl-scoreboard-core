@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/kdotwei/hpl-scoreboard/internal/middleware"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -17,10 +18,8 @@ func TestAuthMiddleware_Unauthorized(t *testing.T) {
 		w.WriteHeader(http.StatusOK) // Should return 200 once authentication passes
 	})
 
-	// TODO: Wrap the real AuthMiddleware here during the Green Phase implementation.
-	// handlerToTest := middleware.AuthMiddleware(mockHandler)
-	// For now we use mockHandler directly, expecting it to incorrectly return 200 without auth.
-	handlerToTest := mockHandler
+	// Wrap the mockHandler with AuthMiddleware
+	handlerToTest := middleware.AuthMiddleware(mockHandler)
 
 	// 2. Execution: simulate sending a request without an Authorization header
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/upload", nil)
