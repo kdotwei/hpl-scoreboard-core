@@ -1,0 +1,77 @@
+name: SDC Backend CI
+
+# Trigger: Push to main branch or Pull Request
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main", "feat/*", "fix/*" ]
+
+jobs:
+  # Job 1: Code Quality Check (Lint)
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go environment
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22' # Matches the Go version suggested in System Prompt
+          cache: false
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+
+  # Job 2: Test & Build
+  # Only runs after Lint passes to save resources
+  test-and-build:
+    name: Test and Build
+    needs: lint
+    runs-on: ubuntu-latest
+    # Ensure environment supports Docker, crucial for future use of Testcontainers
+    services:
+      docker:
+        image: docker:dind
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go environment
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Download dependencies
+        run: go mod download
+
+      # Run tests and generate coverage report
+      # -race: Detect Race Conditions
+      # -coverprofile: Output coverage file
+      - name: Run Unit & Integration Tests
+        run: |
+          go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+
+      # Check test coverage (Quality Gate)
+      # Here we can set a simple script to check if coverage meets the threshold, fail if not
+      - name: Check Coverage Threshold
+        run: |
+          echo "Checking coverage..."
+          go tool cover -func=coverage.txt
+          # Example: Fail if total coverage is below 0% (initial), increase to 80% later
+          TOTAL_COVERAGE=$(go tool cover -func=coverage.txt | grep total | grep -oE '[0-9]+(\.[0-9]+)?')
+          echo "Total Coverage: $TOTAL_COVERAGE%"
+          if (( $(echo "$TOTAL_COVERAGE < 0" | bc -l) )); then
+            echo "❌ Coverage is below threshold (0%)"
+            exit 1
+          fi
+
+      # Build binary to ensure code compiles
+      - name: Build Binary
+        run: go build -v ./...
