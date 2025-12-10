@@ -7,9 +7,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgtype" // 👈 1. 新增這個 import
 	"github.com/kdotwei/hpl-scoreboard/internal/db"
 	"github.com/kdotwei/hpl-scoreboard/internal/service"
-	"github.com/kdotwei/hpl-scoreboard/internal/service/mocks" // 👈 剛剛生成的
+	"github.com/kdotwei/hpl-scoreboard/internal/service/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -17,21 +18,21 @@ import (
 func TestCreateScore(t *testing.T) {
 	// 1. Setup Mock
 	mockService := new(mocks.Service)
-	h := NewHandler(mockService) // 🔴 這裡會報錯，因為 NewHandler 還沒寫
+	h := NewHandler(mockService)
 
-	// 準備 Request Body
-	reqBody := CreateScoreRequest{ // 🔴 這裡會報錯，因為 Struct 還沒定義
+	reqBody := CreateScoreRequest{
 		Gflops:       123.45,
 		ProblemSizeN: 10000,
 		BlockSizeNb:  256,
 	}
 	jsonBody, _ := json.Marshal(reqBody)
 
-	// 模擬 Service 行為：預期會被呼叫一次，並回傳成功
+	// 模擬 Service 行為
 	mockService.On("CreateScore", mock.Anything, mock.MatchedBy(func(arg service.CreateScoreParams) bool {
-		return arg.Gflops == 123.45 // 驗證參數傳遞正確
+		return arg.Gflops == 123.45
 	})).Return(&db.Score{
-		ID:     [16]byte{},
+		// 👇 2. 修正這裡：使用 pgtype.UUID
+		ID:     pgtype.UUID{Bytes: [16]byte{}, Valid: true},
 		Gflops: 123.45,
 	}, nil)
 
@@ -40,9 +41,9 @@ func TestCreateScore(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	// 3. 執行 Handler
-	http.HandlerFunc(h.CreateScore).ServeHTTP(rr, req) // 🔴 CreateScore 方法還沒寫
+	http.HandlerFunc(h.CreateScore).ServeHTTP(rr, req)
 
-	// 4. Assertions (斷言)
+	// 4. Assertions
 	assert.Equal(t, http.StatusCreated, rr.Code)
 
 	mockService.AssertExpectations(t)
