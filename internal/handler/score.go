@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/kdotwei/hpl-scoreboard/internal/middleware"
 	"github.com/kdotwei/hpl-scoreboard/internal/service"
+	"github.com/kdotwei/hpl-scoreboard/internal/token"
 )
 
 // CreateScoreRequest 定義前端/Agent 傳來的 JSON 格式
@@ -23,8 +25,14 @@ func (h *Handler) CreateScore(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 2. 取得 UserID
-	// TODO: 在整合 AuthMiddleware 後，這裡要從 r.Context() 拿取真實 UserID
-	userID := "mock-user-id"
+	authPayload, ok := r.Context().Value(middleware.AuthorizationPayloadKey).(*token.Payload)
+	if !ok {
+		// 如果 Context 裡拿不到 Payload，或者是型別不對，回傳 401
+		http.Error(w, "Unauthorized: missing token info", http.StatusUnauthorized)
+		return
+	}
+
+	userID := authPayload.Username // 或是 authPayload.UserID，看你的 Token 結構定義
 
 	// 3. 呼叫 Service 層處理業務邏輯
 	score, err := h.service.CreateScore(r.Context(), service.CreateScoreParams{
