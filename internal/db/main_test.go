@@ -13,7 +13,6 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	// 👇 修正 Imports
 	"github.com/testcontainers/testcontainers-go"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -25,12 +24,14 @@ func TestMain(m *testing.M) {
 	ctx := context.Background()
 
 	// 1. 啟動 Postgres Container
-	pgContainer, err := tcpostgres.RunContainer(ctx,
-		testcontainers.WithImage("postgres:15-alpine"), // 👈 修正：使用 testcontainers.WithImage
+	// Fix SA1019: 使用 tcpostgres.Run 取代 RunContainer
+	// 注意：Run 的第二個參數是 image name，所以移除了 testcontainers.WithImage
+	pgContainer, err := tcpostgres.Run(ctx,
+		"postgres:15-alpine",
 		tcpostgres.WithDatabase("hpl_test"),
 		tcpostgres.WithUsername("user"),
 		tcpostgres.WithPassword("password"),
-		testcontainers.WithWaitStrategy( // 👈 修正：使用 testcontainers.WithWaitStrategy
+		testcontainers.WithWaitStrategy(
 			wait.ForLog("database system is ready to accept connections").
 				WithOccurrence(2).
 				WithStartupTimeout(5*time.Second)),
@@ -55,13 +56,16 @@ func TestMain(m *testing.M) {
 	}
 	defer connPool.Close()
 
-	// 👇 這裡如果報錯 undefined New，是正常的 Red Phase (因為還沒 generate)
-	// 但如果 generate 過了，加上 sqlc.yaml 的修正，這裡的型別錯誤就會消失
 	testStore = New(connPool)
 
 	code := m.Run()
 
-	pgContainer.Terminate(ctx)
+	// 6. 清理
+	// Fix errcheck: 處理 Terminate 的回傳錯誤
+	if err := pgContainer.Terminate(ctx); err != nil {
+		log.Printf("failed to terminate container: %s", err)
+	}
+
 	os.Exit(code)
 }
 
