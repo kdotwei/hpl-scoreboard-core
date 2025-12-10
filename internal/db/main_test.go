@@ -12,22 +12,25 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	// 👇 修正 Imports
+	"github.com/testcontainers/testcontainers-go"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-var testStore Store // sqlc 將會生成這個 Store 介面
+var testStore Querier
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
 
 	// 1. 啟動 Postgres Container
 	pgContainer, err := tcpostgres.RunContainer(ctx,
-		tcpostgres.WithImage("postgres:15-alpine"),
+		testcontainers.WithImage("postgres:15-alpine"), // 👈 修正：使用 testcontainers.WithImage
 		tcpostgres.WithDatabase("hpl_test"),
 		tcpostgres.WithUsername("user"),
 		tcpostgres.WithPassword("password"),
-		tcpostgres.WithWaitStrategy(
+		testcontainers.WithWaitStrategy( // 👈 修正：使用 testcontainers.WithWaitStrategy
 			wait.ForLog("database system is ready to accept connections").
 				WithOccurrence(2).
 				WithStartupTimeout(5*time.Second)),
@@ -43,22 +46,21 @@ func TestMain(m *testing.M) {
 	}
 
 	// 3. 執行 Migration
-	// 修正路徑：從 internal/db 往上兩層找到 migrations 資料夾
 	runDBMigration(connStr, "../../migrations")
 
-	// 4. 連線 DB
+	// 4. 連線 DB (使用 pgxpool)
 	connPool, err := pgxpool.New(ctx, connStr)
 	if err != nil {
 		log.Fatalf("failed to connect to db: %s", err)
 	}
 	defer connPool.Close()
 
-	testStore = New(connPool) // sqlc 將會生成 New 函式
+	// 👇 這裡如果報錯 undefined New，是正常的 Red Phase (因為還沒 generate)
+	// 但如果 generate 過了，加上 sqlc.yaml 的修正，這裡的型別錯誤就會消失
+	testStore = New(connPool)
 
-	// 5. 執行測試
 	code := m.Run()
 
-	// 6. 清理
 	pgContainer.Terminate(ctx)
 	os.Exit(code)
 }
