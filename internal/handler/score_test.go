@@ -15,6 +15,7 @@ import (
 	"github.com/kdotwei/hpl-scoreboard/internal/service"
 	"github.com/kdotwei/hpl-scoreboard/internal/service/mocks"
 	"github.com/kdotwei/hpl-scoreboard/internal/token" // 👈 4. 新增
+	token_mocks "github.com/kdotwei/hpl-scoreboard/internal/token/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -22,7 +23,8 @@ import (
 func TestCreateScore(t *testing.T) {
 	// 1. Setup Mock
 	mockService := new(mocks.Service)
-	h := NewHandler(mockService)
+	mockTokenMaker := new(token_mocks.Maker)     // 新增
+	h := NewHandler(mockService, mockTokenMaker) // 修改這行
 
 	reqBody := CreateScoreRequest{
 		Gflops:       123.45,
