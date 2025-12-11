@@ -44,7 +44,9 @@ func TestLogin(t *testing.T) {
 
 	// 驗證回傳的 JSON 包含 access_token
 	var resp LoginResponse // 🔴 這裡會報錯：LoginResponse 尚未定義
-	json.NewDecoder(rr.Body).Decode(&resp)
+	// Fix errcheck: 檢查 Decode 錯誤
+	err := json.NewDecoder(rr.Body).Decode(&resp)
+	assert.NoError(t, err) // 加上這行斷言
 	assert.Equal(t, "mock_access_token", resp.AccessToken)
 	assert.Equal(t, user, resp.User.Username) // 假設我們也會回傳 User 資訊
 }

@@ -39,11 +39,15 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	// 回傳結果
 	resp := LoginResponse{
 		AccessToken: accessToken,
-		User: UserResponse{
-			Username: req.Username,
-		},
+		// Fix S1016: 直接將 req 轉型為 UserResponse
+		// 由於兩個 Struct 欄位名稱與型別一致 (Username string)，Go 允許直接轉型 (忽略 Tags)
+		User: UserResponse(req),
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(resp)
+
+	// Fix errcheck: 檢查 Encode 錯誤 (保留您之前修復的邏輯)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		return
+	}
 }
