@@ -2,23 +2,27 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/kdotwei/hpl-scoreboard/internal/db"
 )
 
 func (s *HPLService) CreateScore(ctx context.Context, arg CreateScoreParams) (*db.Score, error) {
-	// 1. 先取得數值結果
 	result, err := s.store.CreateScore(ctx, db.CreateScoreParams{
-		UserID:       arg.UserID,
-		Gflops:       arg.Gflops,
-		ProblemSizeN: int32(arg.ProblemSizeN),
-		BlockSizeNb:  int32(arg.BlockSizeNb),
+		UserID:        arg.UserID,
+		Gflops:        arg.Gflops,
+		ProblemSizeN:  int32(arg.ProblemSizeN),
+		BlockSizeNb:   int32(arg.BlockSizeNb),
+		LinuxUsername: arg.LinuxUsername,
+		N:             int32(arg.N),
+		Nb:            int32(arg.NB), // 修正編譯錯誤：sqlc 生成的是 Nb
+		P:             int32(arg.P),
+		Q:             int32(arg.Q),
+		ExecutionTime: arg.ExecutionTime,
+		SubmittedAt:   time.Now(), // 確保帶上時間戳記
 	})
-
 	if err != nil {
 		return nil, err
 	}
-
-	// 2. 回傳該數值的記憶體地址 (&result)
 	return &result, nil
 }

@@ -11,10 +11,16 @@ import (
 )
 
 type Score struct {
-	ID           pgtype.UUID `json:"id"`
-	UserID       string      `json:"user_id"`
-	Gflops       float64     `json:"gflops"`
-	ProblemSizeN int32       `json:"problem_size_n"`
-	BlockSizeNb  int32       `json:"block_size_nb"`
-	SubmittedAt  time.Time   `json:"submitted_at"`
+	ID            pgtype.UUID `json:"id"`
+	UserID        string      `json:"user_id"`
+	Gflops        float64     `json:"gflops"`
+	ProblemSizeN  int32       `json:"problem_size_n"`
+	BlockSizeNb   int32       `json:"block_size_nb"`
+	SubmittedAt   time.Time   `json:"submitted_at"`
+	LinuxUsername string      `json:"linux_username"`
+	N             int32       `json:"n"`
+	Nb            int32       `json:"nb"`
+	P             int32       `json:"p"`
+	Q             int32       `json:"q"`
+	ExecutionTime float64     `json:"execution_time"`
 }

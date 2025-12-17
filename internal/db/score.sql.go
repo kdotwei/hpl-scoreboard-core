@@ -16,18 +16,30 @@ INSERT INTO scores (
   gflops,
   problem_size_n,
   block_size_nb,
+  linux_username,
+  n,
+  nb,
+  p,
+  q,
+  execution_time,
   submitted_at
 ) VALUES (
-  $1, $2, $3, $4, $5
-) RETURNING id, user_id, gflops, problem_size_n, block_size_nb, submitted_at
+  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+) RETURNING id, user_id, gflops, problem_size_n, block_size_nb, submitted_at, linux_username, n, nb, p, q, execution_time
 `
 
 type CreateScoreParams struct {
-	UserID       string    `json:"user_id"`
-	Gflops       float64   `json:"gflops"`
-	ProblemSizeN int32     `json:"problem_size_n"`
-	BlockSizeNb  int32     `json:"block_size_nb"`
-	SubmittedAt  time.Time `json:"submitted_at"`
+	UserID        string    `json:"user_id"`
+	Gflops        float64   `json:"gflops"`
+	ProblemSizeN  int32     `json:"problem_size_n"`
+	BlockSizeNb   int32     `json:"block_size_nb"`
+	LinuxUsername string    `json:"linux_username"`
+	N             int32     `json:"n"`
+	Nb            int32     `json:"nb"`
+	P             int32     `json:"p"`
+	Q             int32     `json:"q"`
+	ExecutionTime float64   `json:"execution_time"`
+	SubmittedAt   time.Time `json:"submitted_at"`
 }
 
 func (q *Queries) CreateScore(ctx context.Context, arg CreateScoreParams) (Score, error) {
@@ -36,6 +48,12 @@ func (q *Queries) CreateScore(ctx context.Context, arg CreateScoreParams) (Score
 		arg.Gflops,
 		arg.ProblemSizeN,
 		arg.BlockSizeNb,
+		arg.LinuxUsername,
+		arg.N,
+		arg.Nb,
+		arg.P,
+		arg.Q,
+		arg.ExecutionTime,
 		arg.SubmittedAt,
 	)
 	var i Score
@@ -46,12 +64,18 @@ func (q *Queries) CreateScore(ctx context.Context, arg CreateScoreParams) (Score
 		&i.ProblemSizeN,
 		&i.BlockSizeNb,
 		&i.SubmittedAt,
+		&i.LinuxUsername,
+		&i.N,
+		&i.Nb,
+		&i.P,
+		&i.Q,
+		&i.ExecutionTime,
 	)
 	return i, err
 }
 
 const listTopScores = `-- name: ListTopScores :many
-SELECT id, user_id, gflops, problem_size_n, block_size_nb, submitted_at FROM scores
+SELECT id, user_id, gflops, problem_size_n, block_size_nb, submitted_at, linux_username, n, nb, p, q, execution_time FROM scores
 ORDER BY gflops DESC
 LIMIT $1
 `
@@ -72,6 +96,12 @@ func (q *Queries) ListTopScores(ctx context.Context, limit int32) ([]Score, erro
 			&i.ProblemSizeN,
 			&i.BlockSizeNb,
 			&i.SubmittedAt,
+			&i.LinuxUsername,
+			&i.N,
+			&i.Nb,
+			&i.P,
+			&i.Q,
+			&i.ExecutionTime,
 		); err != nil {
 			return nil, err
 		}
