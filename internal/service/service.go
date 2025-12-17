@@ -20,10 +20,26 @@ type CreateScoreParams struct {
 	ExecutionTime float64
 }
 
+// ListScoresParams contains parameters for listing scores with pagination
+type ListScoresParams struct {
+	Limit  int32
+	Offset int32
+}
+
+// PaginatedScoresResponse contains the paginated scores response
+type PaginatedScoresResponse struct {
+	Scores       []db.Score `json:"scores"`
+	HasMore      bool       `json:"has_more"`
+	TotalRecords int64      `json:"total_records"`
+	Limit        int32      `json:"limit"`
+	Offset       int32      `json:"offset"`
+}
+
 // Service 定義了業務邏輯的介面
 type Service interface {
 	CreateScore(ctx context.Context, arg CreateScoreParams) (*db.Score, error)
-	ListScores(ctx context.Context, limit int32) ([]db.Score, error)
+	ListScores(ctx context.Context, limit int32, offset int32) ([]db.Score, error)
+	ListScoresWithPagination(ctx context.Context, params ListScoresParams) (*PaginatedScoresResponse, error)
 }
 
 // Ensure implementation (編譯時期檢查，確保 HPLService 有實作 Service)

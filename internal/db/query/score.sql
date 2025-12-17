@@ -18,4 +18,13 @@ INSERT INTO scores (
 -- name: ListTopScores :many
 SELECT * FROM scores
 ORDER BY gflops DESC
-LIMIT $1;
+LIMIT $1 OFFSET $2;
+
+-- name: ListScoresWithPagination :many
+SELECT * FROM scores
+WHERE ($1::uuid IS NULL OR id < $1)
+ORDER BY gflops DESC, id DESC
+LIMIT $2;
+
+-- name: CountTotalScores :one
+SELECT COUNT(*) FROM scores;

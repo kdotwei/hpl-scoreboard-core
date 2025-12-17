@@ -259,14 +259,16 @@ func TestListScores(t *testing.T) {
 		queryParams    string
 		expectedStatus int
 		expectedLimit  int32
+		expectedOffset int32
 		setupMock      func(*mocks.Service)
 		expectedScores []db.Score
 	}{
 		{
-			name:           "successful list scores with default limit",
+			name:           "successful list scores with default limit and offset",
 			queryParams:    "",
 			expectedStatus: http.StatusOK,
 			expectedLimit:  10,
+			expectedOffset: 0,
 			setupMock: func(mockService *mocks.Service) {
 				mockScores := []db.Score{
 					{
@@ -298,7 +300,7 @@ func TestListScores(t *testing.T) {
 						SubmittedAt:   time.Now(),
 					},
 				}
-				mockService.On("ListScores", mock.Anything, int32(10)).Return(mockScores, nil)
+				mockService.On("ListScores", mock.Anything, int32(10), int32(0)).Return(mockScores, nil)
 			},
 		},
 		{
@@ -306,6 +308,7 @@ func TestListScores(t *testing.T) {
 			queryParams:    "?limit=5",
 			expectedStatus: http.StatusOK,
 			expectedLimit:  5,
+			expectedOffset: 0,
 			setupMock: func(mockService *mocks.Service) {
 				mockScores := []db.Score{
 					{
@@ -323,25 +326,73 @@ func TestListScores(t *testing.T) {
 						SubmittedAt:   time.Now(),
 					},
 				}
-				mockService.On("ListScores", mock.Anything, int32(5)).Return(mockScores, nil)
+				mockService.On("ListScores", mock.Anything, int32(5), int32(0)).Return(mockScores, nil)
 			},
 		},
 		{
-			name:           "invalid limit falls back to default",
+			name:           "successful list scores with offset",
+			queryParams:    "?limit=5&offset=10",
+			expectedStatus: http.StatusOK,
+			expectedLimit:  5,
+			expectedOffset: 10,
+			setupMock: func(mockService *mocks.Service) {
+				mockScores := []db.Score{
+					{
+						ID:            pgtype.UUID{Bytes: [16]byte{11, 12, 13}, Valid: true},
+						UserID:        "user4",
+						Gflops:        500.0,
+						ProblemSizeN:  30000,
+						BlockSizeNb:   128,
+						LinuxUsername: "hpl_user4",
+						N:             30000,
+						Nb:            128,
+						P:             2,
+						Q:             2,
+						ExecutionTime: 600.3,
+						SubmittedAt:   time.Now(),
+					},
+				}
+				mockService.On("ListScores", mock.Anything, int32(5), int32(10)).Return(mockScores, nil)
+			},
+		},
+		{
+			name:           "invalid limit returns bad request",
 			queryParams:    "?limit=invalid",
-			expectedStatus: http.StatusOK,
-			expectedLimit:  10,
+			expectedStatus: http.StatusBadRequest,
+			expectedLimit:  0,
+			expectedOffset: 0,
 			setupMock: func(mockService *mocks.Service) {
-				mockService.On("ListScores", mock.Anything, int32(10)).Return([]db.Score{}, nil)
+				// No mock call expected for bad request
 			},
 		},
 		{
-			name:           "negative limit falls back to default",
+			name:           "negative limit returns bad request",
 			queryParams:    "?limit=-1",
-			expectedStatus: http.StatusOK,
-			expectedLimit:  10,
+			expectedStatus: http.StatusBadRequest,
+			expectedLimit:  0,
+			expectedOffset: 0,
 			setupMock: func(mockService *mocks.Service) {
-				mockService.On("ListScores", mock.Anything, int32(10)).Return([]db.Score{}, nil)
+				// No mock call expected for bad request
+			},
+		},
+		{
+			name:           "invalid offset returns bad request",
+			queryParams:    "?offset=invalid",
+			expectedStatus: http.StatusBadRequest,
+			expectedLimit:  0,
+			expectedOffset: 0,
+			setupMock: func(mockService *mocks.Service) {
+				// No mock call expected for bad request
+			},
+		},
+		{
+			name:           "negative offset returns bad request",
+			queryParams:    "?offset=-1",
+			expectedStatus: http.StatusBadRequest,
+			expectedLimit:  0,
+			expectedOffset: 0,
+			setupMock: func(mockService *mocks.Service) {
+				// No mock call expected for bad request
 			},
 		},
 		{
@@ -349,28 +400,29 @@ func TestListScores(t *testing.T) {
 			queryParams:    "",
 			expectedStatus: http.StatusInternalServerError,
 			expectedLimit:  10,
+			expectedOffset: 0,
 			setupMock: func(mockService *mocks.Service) {
-				mockService.On("ListScores", mock.Anything, int32(10)).Return(nil, assert.AnError)
+				mockService.On("ListScores", mock.Anything, int32(10), int32(0)).Return(nil, assert.AnError)
 			},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-// 1. Setup Mock
-mockService := new(mocks.Service)
-mockTokenMaker := new(token_mocks.Maker)
-h := NewHandler(mockService, mockTokenMaker)
+			// 1. Setup Mock
+			mockService := new(mocks.Service)
+			mockTokenMaker := new(token_mocks.Maker)
+			h := NewHandler(mockService, mockTokenMaker)
 
-// Setup service mock expectations
-tc.setupMock(mockService)
+			// Setup service mock expectations
+			tc.setupMock(mockService)
 
-// 2. Create HTTP Request (no authentication required)
-req, err := http.NewRequest("GET", "/api/v1/scores"+tc.queryParams, nil)
-assert.NoError(t, err)
+			// 2. Create HTTP Request (no authentication required)
+			req, err := http.NewRequest("GET", "/api/v1/scores"+tc.queryParams, nil)
+			assert.NoError(t, err)
 
-// 3. Execute Handler
-rr := httptest.NewRecorder()
+			// 3. Execute Handler
+			rr := httptest.NewRecorder()
 			http.HandlerFunc(h.ListScores).ServeHTTP(rr, req)
 
 			// 4. Assertions
@@ -380,6 +432,144 @@ rr := httptest.NewRecorder()
 				var scores []db.Score
 				err := json.Unmarshal(rr.Body.Bytes(), &scores)
 				assert.NoError(t, err)
+			}
+
+			// Verify all mock expectations were met
+			mockService.AssertExpectations(t)
+		})
+	}
+}
+
+func TestListScoresWithPagination(t *testing.T) {
+	testCases := []struct {
+		name           string
+		queryParams    string
+		expectedStatus int
+		expectedLimit  int32
+		expectedOffset int32
+		setupMock      func(*mocks.Service)
+	}{
+		{
+			name:           "successful pagination with default parameters",
+			queryParams:    "",
+			expectedStatus: http.StatusOK,
+			expectedLimit:  10,
+			expectedOffset: 0,
+			setupMock: func(mockService *mocks.Service) {
+				mockResponse := &service.PaginatedScoresResponse{
+					Scores: []db.Score{
+						{ID: pgtype.UUID{Valid: true}, Gflops: 100.0, UserID: "user1"},
+					},
+					HasMore:      false,
+					TotalRecords: 1,
+					Limit:        10,
+					Offset:       0,
+				}
+				mockService.On("ListScoresWithPagination", mock.Anything, mock.MatchedBy(func(params service.ListScoresParams) bool {
+					return params.Limit == 10 && params.Offset == 0
+				})).Return(mockResponse, nil)
+			},
+		},
+		{
+			name:           "successful pagination with custom limit",
+			queryParams:    "?limit=5",
+			expectedStatus: http.StatusOK,
+			expectedLimit:  5,
+			expectedOffset: 0,
+			setupMock: func(mockService *mocks.Service) {
+				mockResponse := &service.PaginatedScoresResponse{
+					Scores: []db.Score{
+						{ID: pgtype.UUID{Valid: true}, Gflops: 200.0, UserID: "user2"},
+					},
+					HasMore:      true,
+					TotalRecords: 50,
+					Limit:        5,
+					Offset:       0,
+				}
+				mockService.On("ListScoresWithPagination", mock.Anything, mock.MatchedBy(func(params service.ListScoresParams) bool {
+					return params.Limit == 5 && params.Offset == 0
+				})).Return(mockResponse, nil)
+			},
+		},
+		{
+			name:           "successful pagination with limit and offset",
+			queryParams:    "?limit=5&offset=10",
+			expectedStatus: http.StatusOK,
+			expectedLimit:  5,
+			expectedOffset: 10,
+			setupMock: func(mockService *mocks.Service) {
+				mockResponse := &service.PaginatedScoresResponse{
+					Scores: []db.Score{
+						{ID: pgtype.UUID{Valid: true}, Gflops: 300.0, UserID: "user3"},
+					},
+					HasMore:      true,
+					TotalRecords: 50,
+					Limit:        5,
+					Offset:       10,
+				}
+				mockService.On("ListScoresWithPagination", mock.Anything, mock.MatchedBy(func(params service.ListScoresParams) bool {
+					return params.Limit == 5 && params.Offset == 10
+				})).Return(mockResponse, nil)
+			},
+		},
+		{
+			name:           "invalid limit returns bad request",
+			queryParams:    "?limit=invalid",
+			expectedStatus: http.StatusBadRequest,
+			expectedLimit:  0,
+			expectedOffset: 0,
+			setupMock: func(mockService *mocks.Service) {
+				// No mock call expected for bad request
+			},
+		},
+		{
+			name:           "invalid offset returns bad request",
+			queryParams:    "?offset=invalid",
+			expectedStatus: http.StatusBadRequest,
+			expectedLimit:  0,
+			expectedOffset: 0,
+			setupMock: func(mockService *mocks.Service) {
+				// No mock call expected for bad request
+			},
+		},
+		{
+			name:           "service error",
+			queryParams:    "?limit=5",
+			expectedStatus: http.StatusInternalServerError,
+			expectedLimit:  5,
+			expectedOffset: 0,
+			setupMock: func(mockService *mocks.Service) {
+				mockService.On("ListScoresWithPagination", mock.Anything, mock.AnythingOfType("service.ListScoresParams")).Return(nil, assert.AnError)
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// 1. Setup Mock
+			mockService := new(mocks.Service)
+			mockTokenMaker := new(token_mocks.Maker)
+			h := NewHandler(mockService, mockTokenMaker)
+
+			// Setup service mock expectations
+			tc.setupMock(mockService)
+
+			// 2. Create HTTP Request
+			req, err := http.NewRequest("GET", "/api/v1/scores/paginated"+tc.queryParams, nil)
+			assert.NoError(t, err)
+
+			// 3. Execute Handler
+			rr := httptest.NewRecorder()
+			http.HandlerFunc(h.ListScoresWithPagination).ServeHTTP(rr, req)
+
+			// 4. Assertions
+			assert.Equal(t, tc.expectedStatus, rr.Code)
+
+			if tc.expectedStatus == http.StatusOK {
+				var response service.PaginatedScoresResponse
+				err := json.Unmarshal(rr.Body.Bytes(), &response)
+				assert.NoError(t, err)
+				assert.NotNil(t, response.Scores)
 			}
 
 			// Verify all mock expectations were met

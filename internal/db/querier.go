@@ -9,8 +9,10 @@ import (
 )
 
 type Querier interface {
+	CountTotalScores(ctx context.Context) (int64, error)
 	CreateScore(ctx context.Context, arg CreateScoreParams) (Score, error)
-	ListTopScores(ctx context.Context, limit int32) ([]Score, error)
+	ListScoresWithPagination(ctx context.Context, arg ListScoresWithPaginationParams) ([]Score, error)
+	ListTopScores(ctx context.Context, arg ListTopScoresParams) ([]Score, error)
 }
 
 var _ Querier = (*Queries)(nil)

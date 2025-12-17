@@ -27,6 +27,39 @@ func (s *HPLService) CreateScore(ctx context.Context, arg CreateScoreParams) (*d
 	return &result, nil
 }
 
-func (s *HPLService) ListScores(ctx context.Context, limit int32) ([]db.Score, error) {
-	return s.store.ListTopScores(ctx, limit)
+func (s *HPLService) ListScores(ctx context.Context, limit int32, offset int32) ([]db.Score, error) {
+	return s.store.ListTopScores(ctx, db.ListTopScoresParams{
+		Limit:  limit,
+		Offset: offset,
+	})
+}
+
+func (s *HPLService) ListScoresWithPagination(ctx context.Context, params ListScoresParams) (*PaginatedScoresResponse, error) {
+	// Get scores with pagination
+	scores, err := s.store.ListTopScores(ctx, db.ListTopScoresParams{
+		Limit:  params.Limit,
+		Offset: params.Offset,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Get total count for frontend reference
+	totalRecords, err := s.store.CountTotalScores(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate if there are more records
+	hasMore := int64(params.Offset+int32(len(scores))) < totalRecords
+
+	response := &PaginatedScoresResponse{
+		Scores:       scores,
+		HasMore:      hasMore,
+		TotalRecords: totalRecords,
+		Limit:        params.Limit,
+		Offset:       params.Offset,
+	}
+
+	return response, nil
 }

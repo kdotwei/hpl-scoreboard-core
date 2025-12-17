@@ -46,9 +46,9 @@ func (_m *Service) CreateScore(ctx context.Context, arg service.CreateScoreParam
 	return r0, r1
 }
 
-// ListScores provides a mock function with given fields: ctx, limit
-func (_m *Service) ListScores(ctx context.Context, limit int32) ([]db.Score, error) {
-	ret := _m.Called(ctx, limit)
+// ListScores provides a mock function with given fields: ctx, limit, offset
+func (_m *Service) ListScores(ctx context.Context, limit int32, offset int32) ([]db.Score, error) {
+	ret := _m.Called(ctx, limit, offset)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListScores")
@@ -56,19 +56,49 @@ func (_m *Service) ListScores(ctx context.Context, limit int32) ([]db.Score, err
 
 	var r0 []db.Score
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int32) ([]db.Score, error)); ok {
-		return rf(ctx, limit)
+	if rf, ok := ret.Get(0).(func(context.Context, int32, int32) ([]db.Score, error)); ok {
+		return rf(ctx, limit, offset)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int32) []db.Score); ok {
-		r0 = rf(ctx, limit)
+	if rf, ok := ret.Get(0).(func(context.Context, int32, int32) []db.Score); ok {
+		r0 = rf(ctx, limit, offset)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]db.Score)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, int32) error); ok {
-		r1 = rf(ctx, limit)
+	if rf, ok := ret.Get(1).(func(context.Context, int32, int32) error); ok {
+		r1 = rf(ctx, limit, offset)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ListScoresWithPagination provides a mock function with given fields: ctx, params
+func (_m *Service) ListScoresWithPagination(ctx context.Context, params service.ListScoresParams) (*service.PaginatedScoresResponse, error) {
+	ret := _m.Called(ctx, params)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListScoresWithPagination")
+	}
+
+	var r0 *service.PaginatedScoresResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, service.ListScoresParams) (*service.PaginatedScoresResponse, error)); ok {
+		return rf(ctx, params)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, service.ListScoresParams) *service.PaginatedScoresResponse); ok {
+		r0 = rf(ctx, params)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*service.PaginatedScoresResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, service.ListScoresParams) error); ok {
+		r1 = rf(ctx, params)
 	} else {
 		r1 = ret.Error(1)
 	}

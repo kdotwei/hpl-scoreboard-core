@@ -96,6 +96,9 @@ func main() {
 	// [Route 2] List Scores (公開)
 	mux.HandleFunc("GET /api/v1/scores", h.ListScores)
 
+	// [Route 2.1] List Scores with Pagination (公開)
+	mux.HandleFunc("GET /api/v1/scores/paginated", h.ListScoresWithPagination)
+
 	// [Route 3] Submit Score (需要 Auth)
 	authMiddleware := middleware.AuthMiddleware(tokenMaker)
 	mux.Handle("POST /api/v1/scores", authMiddleware(http.HandlerFunc(h.CreateScore)))

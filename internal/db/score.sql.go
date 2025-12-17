@@ -8,7 +8,20 @@ package db
 import (
 	"context"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const countTotalScores = `-- name: CountTotalScores :one
+SELECT COUNT(*) FROM scores
+`
+
+func (q *Queries) CountTotalScores(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countTotalScores)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
 
 const createScore = `-- name: CreateScore :one
 INSERT INTO scores (
@@ -74,14 +87,64 @@ func (q *Queries) CreateScore(ctx context.Context, arg CreateScoreParams) (Score
 	return i, err
 }
 
+const listScoresWithPagination = `-- name: ListScoresWithPagination :many
+SELECT id, user_id, gflops, problem_size_n, block_size_nb, submitted_at, linux_username, n, nb, p, q, execution_time FROM scores
+WHERE ($1::uuid IS NULL OR id < $1)
+ORDER BY gflops DESC, id DESC
+LIMIT $2
+`
+
+type ListScoresWithPaginationParams struct {
+	Column1 pgtype.UUID `json:"column_1"`
+	Limit   int32       `json:"limit"`
+}
+
+func (q *Queries) ListScoresWithPagination(ctx context.Context, arg ListScoresWithPaginationParams) ([]Score, error) {
+	rows, err := q.db.Query(ctx, listScoresWithPagination, arg.Column1, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Score
+	for rows.Next() {
+		var i Score
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Gflops,
+			&i.ProblemSizeN,
+			&i.BlockSizeNb,
+			&i.SubmittedAt,
+			&i.LinuxUsername,
+			&i.N,
+			&i.Nb,
+			&i.P,
+			&i.Q,
+			&i.ExecutionTime,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTopScores = `-- name: ListTopScores :many
 SELECT id, user_id, gflops, problem_size_n, block_size_nb, submitted_at, linux_username, n, nb, p, q, execution_time FROM scores
 ORDER BY gflops DESC
-LIMIT $1
+LIMIT $1 OFFSET $2
 `
 
-func (q *Queries) ListTopScores(ctx context.Context, limit int32) ([]Score, error) {
-	rows, err := q.db.Query(ctx, listTopScores, limit)
+type ListTopScoresParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+func (q *Queries) ListTopScores(ctx context.Context, arg ListTopScoresParams) ([]Score, error) {
+	rows, err := q.db.Query(ctx, listTopScores, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
