@@ -28,7 +28,17 @@ func (h *Handler) CreateScore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	authPayload := r.Context().Value(middleware.AuthorizationPayloadKey).(*token.Payload)
+	authPayloadValue := r.Context().Value(middleware.AuthorizationPayloadKey)
+	if authPayloadValue == nil {
+		http.Error(w, "Missing authorization payload", http.StatusUnauthorized)
+		return
+	}
+
+	authPayload, ok := authPayloadValue.(*token.Payload)
+	if !ok {
+		http.Error(w, "Invalid authorization payload", http.StatusUnauthorized)
+		return
+	}
 
 	score, err := h.service.CreateScore(r.Context(), service.CreateScoreParams{
 		UserID:        authPayload.Username,
