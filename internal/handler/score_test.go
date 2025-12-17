@@ -252,3 +252,138 @@ func TestCreateScore_ErrorCases(t *testing.T) {
 		})
 	}
 }
+
+func TestListScores(t *testing.T) {
+	testCases := []struct {
+		name           string
+		queryParams    string
+		expectedStatus int
+		expectedLimit  int32
+		setupMock      func(*mocks.Service)
+		expectedScores []db.Score
+	}{
+		{
+			name:           "successful list scores with default limit",
+			queryParams:    "",
+			expectedStatus: http.StatusOK,
+			expectedLimit:  10,
+			setupMock: func(mockService *mocks.Service) {
+				mockScores := []db.Score{
+					{
+						ID:            pgtype.UUID{Bytes: [16]byte{1, 2, 3}, Valid: true},
+						UserID:        "user1",
+						Gflops:        1000.0,
+						ProblemSizeN:  50000,
+						BlockSizeNb:   256,
+						LinuxUsername: "hpl_user1",
+						N:             50000,
+						Nb:            256,
+						P:             4,
+						Q:             4,
+						ExecutionTime: 1800.5,
+						SubmittedAt:   time.Now(),
+					},
+					{
+						ID:            pgtype.UUID{Bytes: [16]byte{4, 5, 6}, Valid: true},
+						UserID:        "user2",
+						Gflops:        800.0,
+						ProblemSizeN:  40000,
+						BlockSizeNb:   128,
+						LinuxUsername: "hpl_user2",
+						N:             40000,
+						Nb:            128,
+						P:             2,
+						Q:             2,
+						ExecutionTime: 1200.3,
+						SubmittedAt:   time.Now(),
+					},
+				}
+				mockService.On("ListScores", mock.Anything, int32(10)).Return(mockScores, nil)
+			},
+		},
+		{
+			name:           "successful list scores with custom limit",
+			queryParams:    "?limit=5",
+			expectedStatus: http.StatusOK,
+			expectedLimit:  5,
+			setupMock: func(mockService *mocks.Service) {
+				mockScores := []db.Score{
+					{
+						ID:            pgtype.UUID{Bytes: [16]byte{7, 8, 9}, Valid: true},
+						UserID:        "user3",
+						Gflops:        1200.0,
+						ProblemSizeN:  60000,
+						BlockSizeNb:   512,
+						LinuxUsername: "hpl_user3",
+						N:             60000,
+						Nb:            512,
+						P:             8,
+						Q:             8,
+						ExecutionTime: 2400.7,
+						SubmittedAt:   time.Now(),
+					},
+				}
+				mockService.On("ListScores", mock.Anything, int32(5)).Return(mockScores, nil)
+			},
+		},
+		{
+			name:           "invalid limit falls back to default",
+			queryParams:    "?limit=invalid",
+			expectedStatus: http.StatusOK,
+			expectedLimit:  10,
+			setupMock: func(mockService *mocks.Service) {
+				mockService.On("ListScores", mock.Anything, int32(10)).Return([]db.Score{}, nil)
+			},
+		},
+		{
+			name:           "negative limit falls back to default",
+			queryParams:    "?limit=-1",
+			expectedStatus: http.StatusOK,
+			expectedLimit:  10,
+			setupMock: func(mockService *mocks.Service) {
+				mockService.On("ListScores", mock.Anything, int32(10)).Return([]db.Score{}, nil)
+			},
+		},
+		{
+			name:           "service layer error",
+			queryParams:    "",
+			expectedStatus: http.StatusInternalServerError,
+			expectedLimit:  10,
+			setupMock: func(mockService *mocks.Service) {
+				mockService.On("ListScores", mock.Anything, int32(10)).Return(nil, assert.AnError)
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+// 1. Setup Mock
+mockService := new(mocks.Service)
+mockTokenMaker := new(token_mocks.Maker)
+h := NewHandler(mockService, mockTokenMaker)
+
+// Setup service mock expectations
+tc.setupMock(mockService)
+
+// 2. Create HTTP Request (no authentication required)
+req, err := http.NewRequest("GET", "/api/v1/scores"+tc.queryParams, nil)
+assert.NoError(t, err)
+
+// 3. Execute Handler
+rr := httptest.NewRecorder()
+			http.HandlerFunc(h.ListScores).ServeHTTP(rr, req)
+
+			// 4. Assertions
+			assert.Equal(t, tc.expectedStatus, rr.Code)
+
+			if tc.expectedStatus == http.StatusOK {
+				var scores []db.Score
+				err := json.Unmarshal(rr.Body.Bytes(), &scores)
+				assert.NoError(t, err)
+			}
+
+			// Verify all mock expectations were met
+			mockService.AssertExpectations(t)
+		})
+	}
+}

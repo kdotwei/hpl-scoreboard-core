@@ -26,3 +26,7 @@ func (s *HPLService) CreateScore(ctx context.Context, arg CreateScoreParams) (*d
 	}
 	return &result, nil
 }
+
+func (s *HPLService) ListScores(ctx context.Context, limit int32) ([]db.Score, error) {
+	return s.store.ListTopScores(ctx, limit)
+}

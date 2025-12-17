@@ -23,6 +23,7 @@ type CreateScoreParams struct {
 // Service 定義了業務邏輯的介面
 type Service interface {
 	CreateScore(ctx context.Context, arg CreateScoreParams) (*db.Score, error)
+	ListScores(ctx context.Context, limit int32) ([]db.Score, error)
 }
 
 // Ensure implementation (編譯時期檢查，確保 HPLService 有實作 Service)

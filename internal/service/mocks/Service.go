@@ -46,6 +46,36 @@ func (_m *Service) CreateScore(ctx context.Context, arg service.CreateScoreParam
 	return r0, r1
 }
 
+// ListScores provides a mock function with given fields: ctx, limit
+func (_m *Service) ListScores(ctx context.Context, limit int32) ([]db.Score, error) {
+	ret := _m.Called(ctx, limit)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListScores")
+	}
+
+	var r0 []db.Score
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int32) ([]db.Score, error)); ok {
+		return rf(ctx, limit)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int32) []db.Score); ok {
+		r0 = rf(ctx, limit)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]db.Score)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int32) error); ok {
+		r1 = rf(ctx, limit)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // NewService creates a new instance of Service. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewService(t interface {

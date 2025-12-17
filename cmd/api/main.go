@@ -15,6 +15,27 @@ import (
 	"github.com/kdotwei/hpl-scoreboard/internal/token"
 )
 
+// enableCORS middleware allows cross-origin requests from frontend
+func enableCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Allow specific origins
+		origin := r.Header.Get("Origin")
+		if origin == "http://localhost:5173" || origin == "http://localhost:3000" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+		}
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		// Handle preflight OPTIONS request
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	// 載入 .env 檔案
 	err := godotenv.Load()
@@ -72,16 +93,16 @@ func main() {
 	// [Route 1] Login (公開)
 	mux.HandleFunc("POST /api/v1/login", h.Login)
 
-	// [Route 2] Submit Score (需要 Auth)
-	// 確保這一行只出現一次！
-	// mux.Handle("POST /api/v1/scores", middleware.AuthMiddleware(http.HandlerFunc(h.CreateScore)))
-	// 建立 Middleware 實例，注入 tokenMaker
+	// [Route 2] List Scores (公開)
+	mux.HandleFunc("GET /api/v1/scores", h.ListScores)
+
+	// [Route 3] Submit Score (需要 Auth)
 	authMiddleware := middleware.AuthMiddleware(tokenMaker)
 	mux.Handle("POST /api/v1/scores", authMiddleware(http.HandlerFunc(h.CreateScore)))
 
 	// 5. 啟動伺服器
 	log.Printf("Server starting on %s", serverAddress)
-	if err := http.ListenAndServe(serverAddress, mux); err != nil {
+	if err := http.ListenAndServe(serverAddress, enableCORS(mux)); err != nil {
 		log.Fatal("Server failed to start:", err)
 	}
 }
