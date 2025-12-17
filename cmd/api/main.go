@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joho/godotenv"
 	"github.com/kdotwei/hpl-scoreboard/internal/db"
 	"github.com/kdotwei/hpl-scoreboard/internal/handler"
 	"github.com/kdotwei/hpl-scoreboard/internal/middleware"
@@ -15,6 +16,12 @@ import (
 )
 
 func main() {
+	// 載入 .env 檔案
+	err := godotenv.Load()
+	if err != nil {
+		log.Println("Warning: .env file not found, using environment variables or defaults")
+	}
+
 	// 1. 環境變數設定
 	dbSource := os.Getenv("DB_SOURCE")
 	if dbSource == "" {
@@ -23,6 +30,12 @@ func main() {
 	serverAddress := os.Getenv("SERVER_ADDRESS")
 	if serverAddress == "" {
 		serverAddress = ":8080"
+	}
+
+	// JWT Secret Key
+	jwtSecretKey := os.Getenv("JWT_SECRET_KEY")
+	if jwtSecretKey == "" {
+		jwtSecretKey = "12345678901234567890123456789012" // 預設值（僅用於開發）
 	}
 
 	// 2. 資料庫連線 (Database Layer)
@@ -45,8 +58,7 @@ func main() {
 	svc := service.NewService(store)
 
 	// 初始化 Token Maker
-	// 注意：在正式環境中，這個 Secret Key 應該從環境變數讀取
-	tokenMaker, err := token.NewJWTMaker("12345678901234567890123456789012")
+	tokenMaker, err := token.NewJWTMaker(jwtSecretKey)
 	if err != nil {
 		log.Fatal("cannot create token maker:", err)
 	}
