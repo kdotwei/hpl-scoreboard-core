@@ -59,5 +59,8 @@ func (h *Handler) CreateScore(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(score)
+	if err := json.NewEncoder(w).Encode(score); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }
