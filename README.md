@@ -77,30 +77,28 @@ The project follows a clean architecture pattern:
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/kdotwei/hpl-scoreboard.git
+   git clone https://github.com/kdotwei/hpl-scoreboard-core.git
    cd hpl-scoreboard-core
    ```
 
 2. **Install dependencies**
    ```bash
-   go mod download
+   go mod tidy
    ```
 
-3. **Set up PostgreSQL database**
-   ```bash
-   # Create database
-   createdb hpl_scoreboard
-   ```
-
-4. **Run database migrations**
+3. **Run database migrations**
    ```bash
    # Using golang-migrate (install if needed)
    migrate -path migrations -database "postgresql://user:password@localhost:5432/hpl_scoreboard?sslmode=disable" up
    ```
 
-5. **Run the application**
+  > [!WARNING]
+  > Please run a PostgreSQL service before this work.
+
+4. **Build and run the application**
    ```bash
-   go run cmd/api/main.go
+   go build -o hpl-scoreboard-core cmd/api/main.go
+   ./hpl-scoreboard-core
    ```
 
 ## ⚙️ Configuration

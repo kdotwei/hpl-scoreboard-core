@@ -50,7 +50,7 @@ func main() {
 	}
 	serverAddress := os.Getenv("SERVER_ADDRESS")
 	if serverAddress == "" {
-		serverAddress = ":8080"
+		serverAddress = ":80"
 	}
 
 	// JWT Secret Key
