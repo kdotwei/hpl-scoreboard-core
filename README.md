@@ -18,13 +18,7 @@ A high-performance computing (HPC) scoreboard API service for tracking and manag
       - [POST /api/v1/login](#post-apiv1login)
     - [Scores](#scores)
       - [POST /api/v1/scores](#post-apiv1scores)
-  - [🗄️ Database Schema](#️-database-schema)
-    - [Scores Table](#scores-table)
-  - [🛠️ Development](#️-development)
-    - [Code Generation](#code-generation)
-    - [Running Tests](#running-tests)
-    - [Linting](#linting)
-    - [Database Migrations](#database-migrations)
+      - [GET /api/v1/scores/paginated](#get-apiv1scorespaginated)
   - [🧪 Testing](#-testing)
   - [📁 Project Structure](#-project-structure)
   - [🤝 Contributing](#-contributing)
@@ -43,12 +37,13 @@ The service is built with modern Go practices, using PostgreSQL for data persist
 
 - **JWT-based Authentication**: Secure API access with JSON Web Tokens
 - **HPL Score Management**: Submit and retrieve HPL benchmark results
+- **Pagination Support**: Efficient cursor-based and offset-based pagination
+- **CORS Support**: Configured for frontend integration (localhost:5173, localhost:3000)
 - **Database Migration**: Automated schema migrations with golang-migrate
 - **Type-safe Database Queries**: Using sqlc for compile-time SQL validation
 - **Comprehensive Testing**: Unit tests with testcontainers for integration testing
 - **Clean Architecture**: Separation of concerns with handlers, services, and data layers
-- **Docker Support**: Easy deployment with containerization
-- **Leaderboard Support**: Retrieve top-performing HPL scores
+- **Leaderboard Support**: Retrieve top-performing HPL scores ordered by GFLOPS
 
 ## 🏗️ Architecture
 
@@ -57,20 +52,22 @@ The project follows a clean architecture pattern:
 ```
 ├── cmd/api/           # Application entry point
 ├── internal/
-│   ├── config/        # Configuration management
 │   ├── db/           # Database layer (sqlc generated)
 │   ├── handler/      # HTTP handlers (controllers)
-│   ├── middleware/   # HTTP middleware (auth, logging)
+│   ├── middleware/   # HTTP middleware (auth)
 │   ├── service/      # Business logic layer
 │   └── token/        # JWT token management
 └── migrations/       # Database migrations
 ```
 
+**Note**: The config directory is not currently used; configuration is handled directly via environment variables in [main.go](cmd/api/main.go).
+
 ## 📋 Prerequisites
 
 - Go 1.24 or higher
-- PostgreSQL 12 or higher
-- Make (optional, for running Makefile commands)
+- [golang-migrate](https://github.com/golang-migrate/migrate) (for database migrations)
+- [sqlc](https://sqlc.dev/) (for code generation from SQL)
+- Docker (optional, for testcontainers
 - Docker (optional, for containerized deployment)
 
 ## 🚀 Installation
@@ -119,8 +116,8 @@ JWT_SECRET_KEY=your-super-secret-jwt-key-here-32-chars
 ### Environment Variables
 
 | Variable | Description | Default |
-|----------|-------------|---------|
-| `DB_SOURCE` | PostgreSQL connection string | `postgresql://user:password@localhost:5432/hpl_scoreboard?sslmode=disable` |
+|----------|-------------|---------|` |
+| `JWT_SECRET_KEY` | JWT signing key (32 characters minimum) | `12345678901234567890123456789012` (development only)alhost:5432/hpl_scoreboard?sslmode=disable` |
 | `SERVER_ADDRESS` | Server listen address | `:8080` |
 | `JWT_SECRET_KEY` | JWT signing key (32 characters minimum) | Development key |
 
@@ -189,6 +186,75 @@ Authorization: Bearer <jwt-token>
   "execution_time": 1800.5,
   "submitted_at": "2024-12-18T10:00:00Z"
 }
+
+#### GET /api/v1/scores
+Retrieve a list of scores with offset-based pagination (public endpoint).
+
+**Query Parameters:**
+- `limit` (optional): Maximum number of scores to return (default: 10)
+- `offset` (optional): Number of scores to skip (default: 0)
+
+**Example:**
+```
+GET /api/v1/scores?limit=20&offset=0
+```
+
+**Response:**
+```json
+[
+  {
+    "id": "uuid-here",
+    "user_id": "username",
+    "gflops": 1234.56,
+    "problem_size_n": 50000,
+    "block_size_nb": 256,
+    "linux_username": "hpc-user",
+    "n": 50000,
+    "nb": 256,
+    "p": 4,
+    "q": 4,
+    "execution_time": 1800.5,
+    "submitted_at": "2024-12-18T10:00:00Z"
+  }
+]
+```
+
+#### GET /api/v1/scores/paginated
+Retrieve scores with cursor-based pagination for better performance (public endpoint).
+
+**Query Parameters:**
+- `limit` (optional): Maximum number of scores to return (1-100, default: 10)
+- `offset` (optional): Number of scores to skip (default: 0)
+
+**Example:**
+```
+GET /api/v1/scores/paginated?limit=50&offset=0
+```
+
+**Response:**
+```json
+{
+  "scores": [
+    {
+      "id": "uuid-here",
+      "user_id": "username",
+      "gflops": 1234.56,
+      "problem_size_n": 50000,
+      "block_size_nb": 256,
+      "linux_username": "hpc-user",
+      "n": 50000,
+      "nb": 256,
+      "p": 4,
+      "q": 4,
+      "execution_time": 1800.5,
+      "submitted_at": "2024-12-18T10:00:00Z"
+    }
+  ],
+  "total": 1000,
+  "limit": 50,
+  "offset": 0
+}
+```
 ```
 
 ## 🗄️ Database Schema
@@ -211,39 +277,51 @@ Authorization: Bearer <jwt-token>
 | `submitted_at` | TIMESTAMPTZ | Submission timestamp |
 
 ## 🛠️ Development
-
-### Code Generation
-
-The project uses sqlc for type-safe database queries:
-
-```bash
-# Generate database code from SQL queries
-sqlc generate
-```
-
-### Running Tests
-
-```bash
-# Run all tests
-go test ./...
-
-# Run tests with coverage
-go test -cover ./...
-
-# Run integration tests with testcontainers
-go test ./internal/db/...
-```
-
-### Linting
-
-```bash
-# Run golangci-lint
-golangci-lint run
-```
-
-### Database Migrations
-
-Create a new migration:
+ with routes and CORS
+├── internal/                   # Private application code
+│   ├── db/                     # Database layer (sqlc generated)
+│   │   ├── db.go              # Database connection and queries
+│   │   ├── models.go          # Generated models
+│   │   ├── querier.go         # Generated query interface
+│   │   ├── score.sql.go       # Generated score queries
+│   │   ├── score_test.go      # Score integration tests
+│   │   ├── main_test.go       # Test setup with testcontainers
+│   │   └── query/
+│   │       └── score.sql      # SQL query definitions
+│   ├── handler/               # HTTP request handlers
+│   │   ├── handler.go         # Handler struct and constructor
+│   │   ├── login.go           # Login endpoint
+│   │   ├── login_test.go      # Login handler tests
+│   │   ├── score.go           # Score endpoints (Create, List, Paginated)
+│   │   ├── score_test.go      # Score handler tests
+│   │   └── auth_test.go       # Auth helper tests
+│   ├── middleware/            # HTTP middleware
+│   │   ├── auth.go            # JWT authentication middleware
+│   │   └── auth_test.go       # Middleware tests
+│   ├── service/               # Business logic layer
+│   │   ├── service.go         # Service interface and constructor
+│   │   ├── score.go           # Score business logic
+│   │   └── mocks/             # Generated service mocks
+│   │       └── Service.go     # Mockery-generated service mock
+│   └── token/                 # JWT token management
+│       ├── jwt_maker.go       # JWT implementation
+│       ├── jwt_maker_test.go  # JWT maker tests
+│       ├── maker.go           # Token maker interface
+│       ├── payload.go         # JWT payload structure
+│       └── mocks/             # Generated token mocks
+│           └── Maker.go       # Mockery-generated token maker mock
+├── migrations/                # Database migration files
+│   ├── 000001_init_schema.up.sql      # Initial schema
+│   ├── 000001_init_schema.down.sql
+│   ├── 000002_add_hpl_metrics.up.sql  # Add HPL metrics columns
+│   └── 000002_add_hpl_metrics.down.sql
+├── go.mod                     # Go module definition
+├── go.sum                     # Go module checksums
+├── sqlc.yaml                  # sqlc configuration
+├── main_test.go               # Root level test file
+├── test_integration.sh        # Integration test script
+├── test_pagination.md         # Pagination testing guide
+├── PAGINATION_IMPLEMENTATION.md  # Pagination implementation details
 
 ```bash
 migrate create -ext sql -dir migrations -seq your_migration_name
@@ -257,7 +335,9 @@ migrate -path migrations -database "your-db-url" up
 
 Rollback migrations:
 
-```bash
+```x] Add public leaderboard endpoints
+- [x] Implement pagination (offset-based and cursor-based)
+- [x] CORS support for frontend integration
 migrate -path migrations -database "your-db-url" down
 ```
 
